@@ -65,20 +65,10 @@ kdtree_node * kdtree(kdtree_node * root_node,
     qsort(pointlist, right + 1, sizeof(struct point), comparez);
     new_node->zlowmost = pointlist[0].z;
     new_node->zupmost = pointlist[right].z;
-    /*
-    new_node->leftmost = new_node->location.x;
-    new_node->rightmost = new_node->location.x;
-    new_node->upmost = new_node->location.y;
-    new_node->downmost = new_node->location.y;
-    new_node->zupmost = new_node->location.z;
-    new_node->zlowmost = new_node->location.z;
-    */
+
     for (int i = 0; i < right+1; i++) {
-      //printf("node->left_index+i: %d\n", new_node->left_index+i);
       node_indexes[new_node->left_index+i] = pointlist[i].id;
     }
-
-    //node_indexes[left] = new_node->location.id;
 
     return new_node;
   }
@@ -104,8 +94,6 @@ kdtree_node * kdtree(kdtree_node * root_node,
     new_node->zupmost = pointlist[right].z;
   }
 
-  // divide into to 2 points
-  //median = right / 2;
 
   node_indexes[new_node->left_index+median] = pointlist[median].id;
   //printf("node->left_index+median: %d\n", new_node->left_index+median);
@@ -140,13 +128,11 @@ kdtree_node * kdtree(kdtree_node * root_node,
       new_node->downmost = new_node->child2->downmost;
       new_node->zupmost = new_node->child2->zupmost;
       new_node->zlowmost = new_node->child2->zlowmost;
-      //printf("only child1 is NULL!\n");
     } else if (new_node->child1 != NULL) {
       new_node->upmost = new_node->child1->upmost;
       new_node->downmost = new_node->child1->downmost;
       new_node->zupmost = new_node->child1->zupmost;
       new_node->zlowmost = new_node->child1->zlowmost;
-      //printf("only child2 is NULL!\n");
     } else {
       new_node->upmost = new_node->location.y;
       new_node->downmost = new_node->location.y;
@@ -170,13 +156,11 @@ kdtree_node * kdtree(kdtree_node * root_node,
       new_node->leftmost = new_node->child2->leftmost;
       new_node->zupmost = new_node->child2->zupmost;
       new_node->zlowmost = new_node->child2->zlowmost;
-      //printf("only child1 is NULL!\n");
     } else if (new_node->child1 != NULL) {
       new_node->rightmost = new_node->child1->rightmost;
       new_node->leftmost = new_node->child1->leftmost;
       new_node->zupmost = new_node->child1->zupmost;
       new_node->zlowmost = new_node->child1->zlowmost;
-      //printf("only child2 is NULL!\n");
     } else {
       new_node->rightmost = new_node->location.x;
       new_node->leftmost = new_node->location.x;
@@ -201,13 +185,11 @@ kdtree_node * kdtree(kdtree_node * root_node,
       new_node->leftmost = new_node->child2->leftmost;
       new_node->upmost = new_node->child2->upmost;
       new_node->downmost = new_node->child2->downmost;
-      //printf("only child1 is NULL!\n");
     } else if (new_node->child1 != NULL) {
       new_node->rightmost = new_node->child1->rightmost;
       new_node->leftmost = new_node->child1->leftmost;
       new_node->upmost = new_node->child1->upmost;
       new_node->downmost = new_node->child1->downmost;
-      //printf("only child2 is NULL!\n");
     } else {
       new_node->rightmost = new_node->location.x;
       new_node->leftmost = new_node->location.x;
