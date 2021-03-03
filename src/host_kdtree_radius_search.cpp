@@ -27,16 +27,16 @@ static int setup_ocl(cl_uint, cl_uint, char *);
 static void kdtree_calc(int isOCL);
 
 cl_command_queue Queue;
-cl_kernel k_kdtree;
+cl_kernel k_radius_search;
 cl_context context = NULL;
 cl_program program = NULL;
 size_t N, N_source;
 int limit;
 float radius;
 
-float * trans_cloud_points_x;
-float * trans_cloud_points_y;
-float * trans_cloud_points_z;
+float * lidar_points_x;
+float * lidar_points_y;
+float * lidar_points_z;
 
 float * map_points_x;
 float * map_points_y;
@@ -57,7 +57,7 @@ int main(int argc, char ** argv) {
   const char * lidar_file = "./data/lidar_points.pcd";
 
   // configuration
-  int OCL = 0;
+  int OCL = 1;
   radius = 1.0f;
   limit = 5;
   // -------------
@@ -96,9 +96,9 @@ int main(int argc, char ** argv) {
   {
     // memory allocation
     // LiDAR points (x, y, z), input of radius search
-    trans_cloud_points_x = (float *)malloc(points_size);
-    trans_cloud_points_y = (float *)malloc(points_size);
-    trans_cloud_points_z = (float *)malloc(points_size);
+    lidar_points_x = (float *)malloc(points_size);
+    lidar_points_y = (float *)malloc(points_size);
+    lidar_points_z = (float *)malloc(points_size);
     // Map points (x, y, z), input of radius search
     map_points_x = (float *)malloc(map_size);
     map_points_y = (float *)malloc(map_size);
@@ -157,23 +157,15 @@ int main(int argc, char ** argv) {
       bottom_left = temp_bl;
       bl_index = i;
     }
-
-    // 入力点群として，pclで読み込んだ点群に乱数を加えたものを用いる
-    /*
-      trans_cloud_points_x[i] = p_cloud->points[i].x + (float) rand()/RAND_MAX;
-      trans_cloud_points_y[i] = p_cloud->points[i].y + (float) rand()/RAND_MAX;
-      trans_cloud_points_z[i] = p_cloud->points[i].z + (float) rand()/RAND_MAX;
-    */
   }
-  //printf("map (%f, %f, %f) to (%f, %f, %f)\n", x_min, y_min, z_min, x_max, y_max, z_max);
   printf("map (%f, %f, %f) to (%f, %f, %f)\n", datapoints[bl_index].x, datapoints[bl_index].y, datapoints[bl_index].z, datapoints[tr_index].x, datapoints[tr_index].y, datapoints[tr_index].z);
 
   x_min = y_min = z_min = 10000000.0;
   x_max = y_max = z_max = -10000000.0;
   for (int i = 0; i < N_source; i++) {
-    trans_cloud_points_x[i] = p_cloud_source->points[i].x;
-    trans_cloud_points_y[i] = p_cloud_source->points[i].y;
-    trans_cloud_points_z[i] = p_cloud_source->points[i].z;
+    lidar_points_x[i] = p_cloud_source->points[i].x;
+    lidar_points_y[i] = p_cloud_source->points[i].y;
+    lidar_points_z[i] = p_cloud_source->points[i].z;
     x_min = std::min(x_min, p_cloud_source->points[i].x);
     y_min = std::min(y_min, p_cloud_source->points[i].y);
     z_min = std::min(z_min, p_cloud_source->points[i].z);
@@ -181,11 +173,6 @@ int main(int argc, char ** argv) {
     x_max = std::max(x_max, p_cloud_source->points[i].x);
     y_max = std::max(y_max, p_cloud_source->points[i].y);
     z_max = std::max(z_max, p_cloud_source->points[i].z);
-    /*
-      trans_cloud_points_x[i] = p_cloud->points[i].x + (float) rand()/RAND_MAX *0.01;
-      trans_cloud_points_y[i] = p_cloud->points[i].y + (float) rand()/RAND_MAX * 0.01;
-      trans_cloud_points_z[i] = p_cloud->points[i].z + (float) rand()/RAND_MAX * 0.01;
-    */
   }
   printf("source (%f, %f, %f) to (%f, %f, %f)\n", x_min, y_min, z_min, x_max, y_max, z_max);
   printf("index: %d, (%f, %f, %f) & (%f, %f, %f), dist = %f\n", rep_neighbor_index, rep_source_point.x, rep_source_point.y, rep_source_point.z, rep_neighbor_point.x, rep_neighbor_point.y, rep_neighbor_point.z, rep_dist);
@@ -214,22 +201,13 @@ int main(int argc, char ** argv) {
   printf("constructing kd tree...\n");
   unsigned alloc_pointer = 0;
   kdtree(root_node, &alloc_pointer, datapoints, 0, N - 1, 0, node_indexes);
-  // printf("MEMOFFSET: %p\n", root_node);
-  // for (int i = 0; i < N; i++) {
-  //   root_node[i];
-  //   for (int j = 0; j < sizeof(kdtree_node); j++) {
-  //     uint8_t c = ((char *)(&(root_node[i])))[j];
-  //     printf("%02x ", c);
-  //   }
-  //   putchar('\n');
-  // }
   printf("done.\n");
 
-  printf("lidar: \n");
+  printf("input preview lidar: \n");
   for (int i = 0; i < 10; i++) {
-    printf("%d, (%lf, %lf, %lf)\n", i, trans_cloud_points_x[i], trans_cloud_points_y[i], trans_cloud_points_z[i]);
+    printf("%d, (%lf, %lf, %lf)\n", i, lidar_points_x[i], lidar_points_y[i], lidar_points_z[i]);
   }
-  printf("map: \n");
+  printf("input preview map: \n");
   for (int i = 0; i < 10; i++) {
     printf("%d, (%lf, %lf, %lf)\n", i, map_points_x[i], map_points_y[i], map_points_z[i]);
   }
@@ -244,23 +222,15 @@ int main(int argc, char ** argv) {
     }
   }
 
-  /*
-    temp = root_node;
-    for (int i = 0; i < 100; i++){
-    printf("axis: %d, axis_val: %f, left: (%f, %f, %f, %d), right: (%f, %f, %f, %d)\n", temp->axis, temp->axis_val, temp->child1->location.x, temp->child1->location.y, temp->child1->location.z, temp->child1->location.id, temp->child2->location.x, temp->child2->location.y, temp->child2->location.z, temp->child2->location.id);
-    printf("child1 (%d to %d), child2 (%d to %d)\n", temp->child1->left_index, temp->child1->right_index, temp->child2->left_index, temp->child2->right_index);
-    temp = temp->child1;
-    }
-  */
 
   // timer
   clock_t t0 = clock();
   // Writing Map & LiDAR points to device
   if (OCL) {
     printf("copy host to device\n");
-    clEnqueueWriteBuffer(Queue, d_points_x, CL_TRUE, 0, points_size, trans_cloud_points_x, 0, NULL, NULL);
-    clEnqueueWriteBuffer(Queue, d_points_y, CL_TRUE, 0, points_size, trans_cloud_points_y, 0, NULL, NULL);
-    clEnqueueWriteBuffer(Queue, d_points_z, CL_TRUE, 0, points_size, trans_cloud_points_z, 0, NULL, NULL);
+    clEnqueueWriteBuffer(Queue, d_points_x, CL_TRUE, 0, points_size, lidar_points_x, 0, NULL, NULL);
+    clEnqueueWriteBuffer(Queue, d_points_y, CL_TRUE, 0, points_size, lidar_points_y, 0, NULL, NULL);
+    clEnqueueWriteBuffer(Queue, d_points_z, CL_TRUE, 0, points_size, lidar_points_z, 0, NULL, NULL);
     clEnqueueWriteBuffer(Queue, d_map_points_x, CL_TRUE, 0, map_size, map_points_x, 0, NULL, NULL);
     clEnqueueWriteBuffer(Queue, d_map_points_y, CL_TRUE, 0, map_size, map_points_y, 0, NULL, NULL);
     clEnqueueWriteBuffer(Queue, d_map_points_z, CL_TRUE, 0, map_size, map_points_z, 0, NULL, NULL);
@@ -286,7 +256,7 @@ int main(int argc, char ** argv) {
     if (neighbor_candidate_indexes[i] != 0) {
       int source_point_index = i / limit;
       int map_point_index = neighbor_candidate_indexes[i];
-      printf("%d-th source_point (%f, %f, %f), neighbor map point (%f, %f, %f)\n", source_point_index, trans_cloud_points_x[source_point_index], trans_cloud_points_y[source_point_index], trans_cloud_points_z[source_point_index], map_points_x[map_point_index], map_points_y[map_point_index], map_points_z[map_point_index]);
+      printf("%d-th source_point (%f, %f, %f), neighbor map point (%f, %f, %f)\n", source_point_index, lidar_points_x[source_point_index], lidar_points_y[source_point_index], lidar_points_z[source_point_index], map_points_x[map_point_index], map_points_y[map_point_index], map_points_z[map_point_index]);
 
       //printf("neighbor[%d] = %d (dist = %f)\n", i, neighbor_candidate_indexes[i], neighbor_candidate_dists[i]);
     }
@@ -304,15 +274,15 @@ int main(int argc, char ** argv) {
     clReleaseMemObject(d_node_indexes);
     clReleaseMemObject(d_neighbor_candidates);
     clReleaseMemObject(d_neighbor_candidate_dists);
-    clReleaseKernel(k_kdtree);
+    clReleaseKernel(k_radius_search);
     clReleaseCommandQueue(Queue);
     clSVMFree(context, root_node);
   }
 
   // release allocated memory
-  free(trans_cloud_points_x);
-  free(trans_cloud_points_y);
-  free(trans_cloud_points_z);
+  free(lidar_points_x);
+  free(lidar_points_y);
+  free(lidar_points_z);
   free(node_indexes);
   free(neighbor_candidate_indexes);
   free(neighbor_candidate_dists);
@@ -324,8 +294,8 @@ int main(int argc, char ** argv) {
 
 // setup OpenCL
 static int setup_ocl(cl_uint platform, cl_uint device, char * msg) {
-  const char * kernel_file = "kernel_radius_search.cl";
-  const char * kernel_name = "kdtreeNDT";
+  const char * kernel_file = "./src/kernel_radius_search.cl";
+  const char * kernel_name = "radiusSearchCL";
   cl_platform_id platform_id[MAX_PLATFORMS];
   cl_device_id device_id[MAX_DEVICES];
 
@@ -393,7 +363,7 @@ static int setup_ocl(cl_uint platform, cl_uint device, char * msg) {
   }
 
   // kernel
-  k_kdtree = clCreateKernel(program, kernel_name, &ret);
+  k_radius_search = clCreateKernel(program, kernel_name, &ret);
   if (ret != CL_SUCCESS) {
     sprintf(msg, "[ERROR] clCreateKernel() error");
     return 1;
@@ -431,18 +401,19 @@ static void kdtree_calc(int isOCL) {
     cl_int ret;
 
     // set arguments
-    clSetKernelArg(k_kdtree, 0, sizeof(cl_mem), (void *)&d_points_x);
-    clSetKernelArg(k_kdtree, 1, sizeof(cl_mem), (void *)&d_points_y);
-    clSetKernelArg(k_kdtree, 2, sizeof(cl_mem), (void *)&d_points_z);
-    clSetKernelArg(k_kdtree, 3, sizeof(cl_mem), (void *)&d_map_points_x);
-    clSetKernelArg(k_kdtree, 4, sizeof(cl_mem), (void *)&d_map_points_y);
-    clSetKernelArg(k_kdtree, 5, sizeof(cl_mem), (void *)&d_map_points_z);
-    clSetKernelArg(k_kdtree, 6, sizeof(cl_mem), (void *)&d_node_indexes);
-    clSetKernelArgSVMPointer(k_kdtree, 7, root_node);
-    clSetKernelArg(k_kdtree, 8, sizeof(int), (void *)&N);
-    clSetKernelArg(k_kdtree, 9, sizeof(int), (void *)&limit);
-    clSetKernelArg(k_kdtree, 10, sizeof(cl_mem), (void *)&d_neighbor_candidates);
-    clSetKernelArg(k_kdtree, 11, sizeof(cl_mem), (void *)&d_neighbor_candidate_dists);
+    clSetKernelArg(k_radius_search, 0, sizeof(cl_mem), (void *)&d_points_x);
+    clSetKernelArg(k_radius_search, 1, sizeof(cl_mem), (void *)&d_points_y);
+    clSetKernelArg(k_radius_search, 2, sizeof(cl_mem), (void *)&d_points_z);
+    clSetKernelArg(k_radius_search, 3, sizeof(cl_mem), (void *)&d_map_points_x);
+    clSetKernelArg(k_radius_search, 4, sizeof(cl_mem), (void *)&d_map_points_y);
+    clSetKernelArg(k_radius_search, 5, sizeof(cl_mem), (void *)&d_map_points_z);
+    clSetKernelArg(k_radius_search, 6, sizeof(cl_mem), (void *)&d_node_indexes);
+    clSetKernelArgSVMPointer(k_radius_search, 7, root_node);
+    clSetKernelArg(k_radius_search, 8, sizeof(int), (void *)&N);
+    clSetKernelArg(k_radius_search, 9, sizeof(int), (void *)&limit);
+    clSetKernelArg(k_radius_search, 10, sizeof(float), (void *)&radius);
+    clSetKernelArg(k_radius_search, 11, sizeof(cl_mem), (void *)&d_neighbor_candidates);
+    clSetKernelArg(k_radius_search, 12, sizeof(cl_mem), (void *)&d_neighbor_candidate_dists);
 
     // work item
     local_item_size = 256;
@@ -450,13 +421,13 @@ static void kdtree_calc(int isOCL) {
 
     // kicking the kernel
     printf("run radius_search (OpenCL)\n");
-    ret = clEnqueueNDRangeKernel(Queue, k_kdtree, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
+    ret = clEnqueueNDRangeKernel(Queue, k_radius_search, 1, NULL, &global_item_size, &local_item_size, 0, NULL, NULL);
     if (CL_SUCCESS != ret) {
       fprintf(stderr, "[ERROR] error code %d\n", ret);
     }
   } else {
     printf("run radius_search (C)\n");
-    radiusSearchC(trans_cloud_points_x, trans_cloud_points_y, trans_cloud_points_z,
+    radiusSearchC(lidar_points_x, lidar_points_y, lidar_points_z,
                   map_points_x, map_points_y, map_points_z, node_indexes,
                   root_node, N, limit, radius, neighbor_candidate_indexes, neighbor_candidate_dists);
   }

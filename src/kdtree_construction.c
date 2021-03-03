@@ -119,7 +119,7 @@ kdtree_node * kdtree(kdtree_node * root_node,
   new_node->child1 = kdtree(root_node, alloc_pointer,
                             pointlist,
                             /*left  =*/ left,
-                            /*right =*/ median - 1, // 元は right = median。あってるか不明だが、ここをmedianにすると、配列数が収まらない = 木の中に重複して同じvoxelが含有される。
+                            /*right =*/ median - 1,
                             /*depth =*/ depth + 1, node_indexes);
 
   // calculate bounding box
