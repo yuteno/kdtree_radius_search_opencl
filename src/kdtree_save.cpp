@@ -31,8 +31,11 @@ kdtree_node * root_node_for_save;
 int main(int argc, char ** argv) {
   const char * map_file = "./data/pointcloud_map.pcd";
   const char * lidar_file = "./data/lidar_points.pcd";
-  std::string filename = "./data/kdtree_binary.dat";
-  std::ofstream oFstrm(filename.c_str(), std::ios::binary);
+  //std::string filename = "./data/kdtree_binary.dat";
+  std::string filename = "./data/kdtree_ascii.dat";
+  //std::ofstream oFstrm(filename.c_str(), std::ios::binary);
+  std::ofstream oFstrm(filename.c_str(), std::ios::out);
+
   if (oFstrm.fail()) {
     std::cerr << "Error Could not open" << std::endl;
     return -1;
