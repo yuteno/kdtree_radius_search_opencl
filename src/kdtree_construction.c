@@ -26,6 +26,7 @@ static int min(int a, int b) {
 static int max(int a, int b) {
   return (a < b) ? b : a;
 }
+const int MAX_DEPTH = 9;
 
 kdtree_node * kdtree(kdtree_node * root_node,
                      unsigned * alloc_pointer,
@@ -47,7 +48,7 @@ kdtree_node * kdtree(kdtree_node * root_node,
   new_node->depth = depth;
   int median = right / 2;
 
-  if (right == 0 || depth > 9) {
+  if (right == 0 || depth > MAX_DEPTH) {
     // new_node is leaf
     new_node->location = pointlist[median];
     // no child node
